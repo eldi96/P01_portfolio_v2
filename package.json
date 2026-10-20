@@ -1,0 +1,11 @@
+{
+  "name": "eldi-portfolio-v2",
+  "private": true,
+  "scripts": {
+    "dev": "node server.mjs",
+    "check": "node --check js/script.js && node --check js/learning-art.js"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  }
+}
