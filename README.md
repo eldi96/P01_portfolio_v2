@@ -1,8 +1,14 @@
 # P01_portfolio_v2 · ELDI
 
+## 🌐 사이트 바로가기
+
+**[ELDI 포트폴리오 열기 →](https://eldi96.github.io/P01_portfolio_v2/)**
+
+설치나 실행 없이 위 링크로 바로 볼 수 있습니다. PC와 모바일에서 접속할 수 있습니다.
+
 ELDI의 개발자 포트폴리오입니다. 기존 `eldi96/portfolio`와 별도로 관리합니다.
 
-## 실행
+## 로컬 개발용 실행
 
 ```sh
 npm install
