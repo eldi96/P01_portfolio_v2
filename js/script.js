@@ -487,12 +487,19 @@
     detail.dataset.step=String(index);
     detail.querySelector('.figure-word').textContent=data.word;
     detail.querySelector('.figure-index').textContent='0'+(index+1)+' / 03';
+    detail.querySelector('.process-status').textContent=['SCOPE / STRUCTURE','TRACE / RESOLVE','DOCUMENT / DELIVER'][index];
     const content=detail.querySelector('.principle-detail-copy');
-    content.replaceChildren(Object.assign(document.createElement('h3'),{textContent:data.caption}),...data.paragraphs.map(p=>Object.assign(document.createElement('p'),{textContent:p})));
+    const evidence=document.createElement('dl');evidence.className='principle-evidence';
+    [['상황',data.context],['선택',data.decision],['결과',data.result]].forEach(([label,value])=>{
+      const row=document.createElement('div');
+      row.append(Object.assign(document.createElement('dt'),{textContent:label}),Object.assign(document.createElement('dd'),{textContent:value}));evidence.append(row);
+    });
+    const source=Object.assign(document.createElement('a'),{className:'principle-source',href:data.link,textContent:data.linkText+' ↗',target:'_blank',rel:'noopener noreferrer'});
+    content.replaceChildren(Object.assign(document.createElement('p'),{className:'principle-case',textContent:data.paragraphs[0]}),Object.assign(document.createElement('h3'),{textContent:data.caption}),evidence,source);
     detailAnimation?.cancel();figureAnimation?.cancel();
     if(!reduced.matches){
       detailAnimation=content.animate([{opacity:0,transform:'translateY(9px)'},{opacity:1,transform:'translateY(0)'}],{duration:480,easing:'cubic-bezier(.22,1,.36,1)'});
-      figureAnimation=detail.querySelector('.principle-figure').animate([{opacity:.35,transform:'translateY(5px)'},{opacity:1,transform:'translateY(0)'}],{duration:520,easing:'cubic-bezier(.22,1,.36,1)'});
+
     }
   }
   function renderPrinciples(){
@@ -500,6 +507,7 @@
     const top=parseFloat(getComputedStyle(principleStage).top);
     const progress=clamp((top-principleSection.getBoundingClientRect().top)/Math.max(1,principleSection.offsetHeight-principleStage.offsetHeight));
     selectPrinciple(Math.min(2,Math.floor(progress*3)));
+    detail.style.setProperty('--process-progress',progress.toFixed(4));
   }
   function layoutPrinciples(){
     principleSection.classList.toggle('is-pinned',!reduced.matches&&innerHeight>=740&&innerWidth>700);
@@ -513,14 +521,13 @@
       scrollTo({top:top+distance*(index===0?0:(index+.12)/3),behavior:'smooth'});
     }else selectPrinciple(index);
   }));
+  selectPrinciple(0);
   addEventListener('resize',layoutPrinciples);reduced.addEventListener('change',layoutPrinciples);layoutPrinciples();
   // One restrained tactile response at the end, with no custom cursor or scroll capture.
-  const orb=document.querySelector('.contact-orb');
-  orb.addEventListener('pointermove',event=>{if(reduced.matches||event.pointerType!=='mouse')return;const box=orb.getBoundingClientRect();orb.style.transform='translate('+((event.clientX-box.left-box.width/2)*.15)+'px,'+((event.clientY-box.top-box.height/2)*.15)+'px)';});
-  orb.addEventListener('pointerleave',()=>{orb.style.transform='';});
+
   document.querySelector('.copy-button').addEventListener('click',async()=>{
     const status=document.querySelector('#copy-status');
-    try{await navigator.clipboard.writeText('eldi96@naver.com');status.textContent='이메일 주소를 복사했습니다.';}catch{status.textContent='eldi96@naver.com을 선택해 복사해 주세요.';}
+    try{await navigator.clipboard.writeText('eldi96@naver.com');status.textContent='이메일 주소를 복사했습니다.';window.dispatchEvent(new Event('contact-copy-success'));}catch{status.textContent='eldi96@naver.com을 선택해 복사해 주세요.';}
   });
 })();
 
