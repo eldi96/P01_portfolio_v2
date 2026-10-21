@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "node server.mjs",
-    "check": "node --check js/script.js && node --check js/learning-art.js"
+    "check": "node --check js/motion-preference.js && node --check js/script.js && node --check js/learning-art.js"
   },
   "dependencies": {
     "three": "0.180.0"

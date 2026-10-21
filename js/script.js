@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   document.documentElement.classList.add('js-ready');
-  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  const reduced=window.portfolioMotion||matchMedia('(prefers-reduced-motion: reduce)');
   const small=matchMedia('(max-width:700px)');
   const short=matchMedia('(max-height:650px)');
   const header=document.querySelector('.site-header');
