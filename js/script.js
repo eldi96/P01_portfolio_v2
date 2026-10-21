@@ -272,6 +272,15 @@
   });
   const learningArts=learningScenes.map(()=>null);
   let learningIndex=0,learningMotionPhase=0,learningDisplay=0,lastLearningTime=performance.now();
+  let lastLearningTarget=0,fastLearningUntil=0;
+  const quickLearningScenes=new Set();
+  const sceneNav=document.createElement('nav');
+  sceneNav.className='learning-scene-nav';sceneNav.setAttribute('aria-label','학습 장면 바로 보기');
+  const sceneButtons=['Intro','01 보안 기록','02 기초와 연결','03 탐구 방향'].map((label,index)=>{
+    const button=document.createElement('button');button.type='button';button.textContent=label;
+    button.addEventListener('click',()=>goToLearningScene(index));sceneNav.append(button);return button;
+  });
+  learningStage.append(sceneNav);
   const learningSceneLengths={intro:1.45,model:2,total:7.45};
   const modelRotationTimes=learningScenes.map(()=>0);
   const smokeHost=document.querySelector('.learning-smoke');
@@ -322,6 +331,10 @@
   function updateTrack(){
     const positions=stops();
     learningIndex=positions.reduce((best,p,i)=>Math.abs(p-track.scrollLeft)<=Math.abs(positions[best]-track.scrollLeft)?i:best,0);
+    if(performance.now()<fastLearningUntil&&learningIndex>0)quickLearningScenes.add(learningIndex);
+    sceneButtons.forEach((button,index)=>{
+      if(index===learningIndex)button.setAttribute('aria-current','step');else button.removeAttribute('aria-current');
+    });
     if(prev)prev.disabled=track.scrollLeft<3;
     if(next)next.disabled=track.scrollLeft>=track.scrollWidth-track.clientWidth-3;
     const count=document.querySelector('.track-count');
@@ -332,7 +345,8 @@
       const local=learningMotionPhase-(index+1);
       const pinned=learning.classList.contains('is-pinned');
       const entry=1-smooth((Math.abs(offset)-.06)/.94);
-      const focus=index>0?(pinned&&!reduced.matches?smooth((local-.1)/.24):1):0;
+      const quick=quickLearningScenes.has(index);
+      const focus=index>0?(pinned&&!reduced.matches&&!quick?smooth((local-.1)/.24):1):0;
       if(index>0)scene.style.setProperty('--reading-focus',focus.toFixed(4));
       const text=learningText[index];
       if(text&&index===0){
@@ -356,14 +370,14 @@
         scene.style.setProperty('--question-focus',String(active?smooth((t-1.3)/.3):1));
         scene.style.setProperty('--opening-backdrop',String(active?smooth((t-.78)/.45):1));
       }else if(text){
-        const progress=!pinned||reduced.matches?1:clamp((local-.32)/.32);
+        const progress=!pinned||reduced.matches||quick?1:clamp((local-.32)/.32);
         const time=progress*text.duration;
         text.timeline.seek(time);
         if(!text.descriptionLines.length&&time<600){text.description.style.opacity='0';text.description.style.transform='translateY(12px)';}
         text.descriptionLines.forEach((node,i)=>{if(time<650+i*360){node.style.opacity='0';node.style.transform='translateY(105%)';}});
         if(text.ending&&time<text.detailAt+350){text.ending.style.opacity='0';text.ending.style.transform='translateY(7px)';}
         if(text.detail&&time<text.detailAt){text.detail.style.opacity='0';text.detail.style.transform='translateY(8px)';}
-        const headingIn=!pinned||reduced.matches?1:smooth((local+.14)/.26);
+        const headingIn=!pinned||reduced.matches||quick?1:smooth((local+.14)/.26);
         text.lines.forEach(line=>{line.firstElementChild.style.opacity=String(headingIn);line.firstElementChild.style.transform='translateY('+((1-headingIn)*105)+'%)';});
         const exit=pinned&&index<learningScenes.length-1?smooth((local-.91)/.09):0;
         text.heading.style.opacity=String(1-exit);
@@ -395,10 +409,14 @@
   }
   function moveTrack(direction){
     const index=clamp(learningIndex+direction,0,learningScenes.length-1);
+    goToLearningScene(index);
+  }
+  function goToLearningScene(index){
+    if(index>0)quickLearningScenes.add(index);
     if(learning.classList.contains('is-pinned')){
       const distance=learning.offsetHeight-learningStage.offsetHeight;
       const top=scrollY+learning.getBoundingClientRect().top-parseFloat(getComputedStyle(learningStage).top);
-      scrollTo({top:top+distance*(index===0?0:(learningSceneLengths.intro+(index-1+.3)*learningSceneLengths.model)/learningSceneLengths.total),behavior:'smooth'});
+      scrollTo({top:top+distance*(index===0?0:(learningSceneLengths.intro+(index-1+.5)*learningSceneLengths.model)/learningSceneLengths.total),behavior:'instant'});
     }else track.scrollTo({left:index*track.clientWidth,behavior:reduced.matches?'instant':'smooth'});
   }
   prev?.addEventListener('click',()=>moveTrack(-1));next?.addEventListener('click',()=>moveTrack(1));
@@ -421,24 +439,24 @@
     const top=parseFloat(getComputedStyle(learningStage).top);
     const target=clamp((top-box.top)/Math.max(1,distance));
     const now=performance.now(),delta=Math.min(48,Math.max(1,now-lastLearningTime));lastLearningTime=now;
+    // Match fast document movement instead of playing an old scene after it has left the viewport.
+    if(Math.abs(target-lastLearningTarget)*distance/delta>1.4||Math.abs(target-learningDisplay)>.055)fastLearningUntil=now+350;
+    lastLearningTarget=target;
+    const fast=now<fastLearningUntil;
     const inWelcome=box.top<innerHeight*.35&&box.bottom>0;
     if(inWelcome&&smokeStart===null){
       smokeStart=now;
       if(target<learningSceneLengths.intro/learningSceneLengths.total)learningDisplay=Math.min(learningDisplay,.2/learningSceneLengths.total);
     }
-    if(box.top>innerHeight*.9)smokeStart=null;
+    if(box.top>innerHeight*.9){smokeStart=null;quickLearningScenes.clear();}
     const elapsed=smokeStart===null?0:Math.max(0,now-smokeStart);
     // Let the grains gather fully, then hold the readable title before its exit.
-    const introHolding=inWelcome&&elapsed<2700&&learningDisplay<learningSceneLengths.intro/learningSceneLengths.total;
+    const introHolding=!fast&&target<learningSceneLengths.intro/learningSceneLengths.total&&inWelcome&&elapsed<2700&&learningDisplay<learningSceneLengths.intro/learningSceneLengths.total;
     const effectiveTarget=introHolding?Math.min(target,.2/learningSceneLengths.total):target;
     if(introHolding)learningDisplay=Math.min(learningDisplay,.2/learningSceneLengths.total);
-    if(box.top>innerHeight||box.bottom<0)learningDisplay=target;
+    if(fast||box.top>innerHeight||box.bottom<0)learningDisplay=target;
     else{
-      let next=learningDisplay+(effectiveTarget-learningDisplay)*(1-Math.exp(-delta/145));
-      // Fast wheel input must not jump over the opening's line-by-line sequence.
-      if(next>learningDisplay&&learningDisplay<learningSceneLengths.intro/learningSceneLengths.total)next=Math.min(next,learningDisplay+delta/1000*(.55/learningSceneLengths.total));
-      else if(next>learningDisplay)next=Math.min(next,learningDisplay+delta/1000*(.8/learningSceneLengths.total));
-      learningDisplay=next;
+      learningDisplay+=(effectiveTarget-learningDisplay)*(1-Math.exp(-delta/145));
     }
     if(Math.abs(effectiveTarget-learningDisplay)<.00006)learningDisplay=effectiveTarget;
     // All three models receive the same reading and transition distance.

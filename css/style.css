@@ -447,6 +447,11 @@
 
 
 /* One persistent particle field carries across all three learning scenes. */
+.learning-scene-nav{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;position:relative;z-index:5;padding:12px 0}
+.learning-gallery.is-pinned .learning-scene-nav{position:absolute;bottom:16px;left:24px;right:24px}
+.learning-scene-nav button{background:#18171bf0;color:var(--muted);border:1px solid var(--line);border-radius:5px;min-height:40px;padding:8px 14px;font-size:12px;line-height:1.4}
+.learning-scene-nav button[aria-current]{color:var(--gold);border-color:#c6a15b99}
+@media(max-width:700px){.learning-gallery.is-pinned .learning-scene-nav{left:16px;right:16px;bottom:84px;gap:5px}.learning-scene-nav button{font-size:10px;padding:7px 9px;min-height:44px}}
 .motion-preference{position:fixed;right:20px;bottom:18px;z-index:55;display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:calc(100vw - 32px);padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:#18171bf5;color:var(--text);font-size:12px;line-height:1.5}
 .motion-preference>span{color:var(--muted);font-size:11px}
 .motion-preference button{min-height:36px;padding:6px 10px;border:1px solid #c6a15b66;border-radius:4px;background:transparent;color:var(--gold)}
