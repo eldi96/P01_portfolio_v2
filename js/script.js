@@ -83,7 +83,9 @@
         const entry=reduced.matches?1:smooth((innerHeight*.96-card.getBoundingClientRect().top)/(innerHeight*.8));
         film.style.setProperty('--film-progress',entry.toFixed(4));
       }
-      if(small.matches||short.matches||reduced.matches){card.style.transform='';return;}
+      if(small.matches||reduced.matches){card.style.transform='';card.style.filter='';return;}
+      // Tall cards must finish scrolling into view before the next card covers them.
+      card.style.setProperty('--stack-top',Math.min(108+index*10,innerHeight-card.offsetHeight-24)+'px');
       const next=projectCards[index+1];
       const cover=next?clamp((innerHeight*.75-next.getBoundingClientRect().top)/(innerHeight*.6)):0;
       card.style.transform='scale('+(1-cover*.035)+')';
@@ -426,8 +428,8 @@
     }
     if(box.top>innerHeight*.9)smokeStart=null;
     const elapsed=smokeStart===null?0:Math.max(0,now-smokeStart);
-    // Finish the smoke entrance and hold its readable state before allowing exit.
-    const introHolding=inWelcome&&elapsed<1800&&learningDisplay<learningSceneLengths.intro/learningSceneLengths.total;
+    // Let the grains gather fully, then hold the readable title before its exit.
+    const introHolding=inWelcome&&elapsed<2700&&learningDisplay<learningSceneLengths.intro/learningSceneLengths.total;
     const effectiveTarget=introHolding?Math.min(target,.2/learningSceneLengths.total):target;
     if(introHolding)learningDisplay=Math.min(learningDisplay,.2/learningSceneLengths.total);
     if(box.top>innerHeight||box.bottom<0)learningDisplay=target;
@@ -457,11 +459,11 @@
       }
     }
     updateTrack();
-    const reveal=smooth((elapsed-100)/1150);
-    const dissolve=smooth((timeline-.4)/.32);
+    const reveal=smooth((elapsed-100)/1900);
+    const dissolve=smooth((timeline-.4)/.65);
     if(smokeArt){welcome.style.opacity='1';welcome.style.filter='none';smokeArt.draw(reveal,dissolve,elapsed/1000);}
     else if(welcome){welcome.style.opacity=String(reveal*(1-dissolve));welcome.style.filter='blur('+((1-reveal)*14+dissolve*18)+'px)';}
-    return Math.abs(target-learningDisplay)>.00006||(inWelcome&&elapsed<1800)||modelsAnimating;
+    return Math.abs(target-learningDisplay)>.00006||(inWelcome&&elapsed<2700)||modelsAnimating;
   }
   addEventListener('resize',layoutLearning);reduced.addEventListener('change',layoutLearning);layoutLearning();
   document.fonts?.ready.then(()=>{layoutLearning();schedule();});

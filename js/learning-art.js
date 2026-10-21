@@ -36,7 +36,6 @@ extra.sort((a,b)=>a.d-b.d);
 edges.push(...extra.slice(0,19).map(e=>[e.a,e.b]));
 
 window.createLearningArt=originalHost=>{
-  originalHost.classList.add('has-network-motion');
   if(originalHost.dataset.learningModel!=='security')return {draw(){}};
   const host=document.createElement('div');host.className='learning-network-shared';host.setAttribute('aria-hidden','true');
   originalHost.closest('.learning-stage').append(host);
@@ -44,6 +43,8 @@ window.createLearningArt=originalHost=>{
   let renderer;
   try{renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'});}
   catch(error){host.remove();console.warn('Learning network unavailable',error);return {draw(){}};}
+  const stage=originalHost.closest('.learning-stage');
+  stage.querySelectorAll('[data-learning-art]').forEach(node=>node.classList.add('has-network-motion'));
   renderer.setClearColor(0,0);
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(40,1,.1,50);
   camera.position.z=7;
@@ -110,6 +111,10 @@ window.createLearningArt=originalHost=>{
   let width=0,height=0;
   const pts=nodes.map(()=>new THREE.Vector3()),end=new THREE.Vector3();
   function draw(timeline,turn=null){
+    // Static layouts (short windows / reduced motion) use the original scene images.
+    if(!stage.closest('#learning').classList.contains('is-pinned')){
+      host.style.opacity='0';host.style.visibility='hidden';return;
+    }
     const mobile=innerWidth<=700,phase=timeline-2;
     const visible=ease((timeline-1.85)/.25);
     host.style.opacity=String(visible);host.style.visibility=visible?'visible':'hidden';
@@ -122,7 +127,8 @@ window.createLearningArt=originalHost=>{
       camera.aspect=width/height;camera.updateProjectionMatrix();
       pointMaterial.uniforms.dpr.value=dpr;lineMaterial.uniforms.viewport.value.set(width,height);
     }
-    const collect=clamp((phase+.03)/.85),connect=clamp((phase-1.64)/.36),live=ease((phase-2.03)/.5);
+    // Card two's heading starts at timeline 3 - .14; begin its first link there.
+    const collect=clamp((phase+.03)/.85),connect=clamp((phase-.86)/1.14),live=ease((phase-2.03)/.5);
     const time=turn===null?0:Math.max(0,turn-.35)*60/(Math.PI*2);
     const viewH=2*7*Math.tan(20*Math.PI/180),viewW=viewH*width/height;
     group.position.set(mobile?0:-viewW*.24,mobile?viewH*.16:0,0);
@@ -169,66 +175,67 @@ window.createLearningArt=originalHost=>{
   return {draw(){}};
 };
 
-// A text texture is advected through procedural noise, then resolves to crisp type.
+// Scroll-driven disintegration inspired by https://codepen.io/dev_loop/pen/mdVWRMv.
+// Rasterize only the title, then distribute its pixels into deterministic dust layers.
 window.createLearningSmoke=host=>{
-  let renderer;
-  try{
-    renderer=new THREE.WebGLRenderer({alpha:true,antialias:false,powerPreference:'low-power'});
-    renderer.setClearColor(0,0);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
-    const textCanvas=document.createElement('canvas');textCanvas.width=2048;textCanvas.height=768;
-    const ctx=textCanvas.getContext('2d');
-    const texture=new THREE.CanvasTexture(textCanvas);texture.minFilter=THREE.LinearFilter;texture.magFilter=THREE.LinearFilter;texture.generateMipmaps=false;
-    const drawType=()=>{
-      ctx.clearRect(0,0,2048,768);ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.font='500 266px "DM Sans", sans-serif';
-      const size=Math.min(266,266*1840/ctx.measureText('Stay curious.').width);
-      ctx.font='500 '+size+'px "DM Sans", sans-serif';ctx.fillText('Stay curious.',1024,397);texture.needsUpdate=true;
-    };
-    drawType();document.fonts?.ready.then(drawType);
-    const material=new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,uniforms:{map:{value:texture},reveal:{value:0},dissolve:{value:0},time:{value:0}},vertexShader:
-      'varying vec2 uv0;void main(){uv0=uv;gl_Position=vec4(position.xy,0.,1.);}',fragmentShader:
-      `precision mediump float;
-      varying vec2 uv0;uniform sampler2D map;uniform float reveal,dissolve,time;
-      float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-      float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.)),f.x),f.y);}
-      float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=mat2(.8,-.6,.6,.8)*p*2.1+3.7;a*=.5;}return v;}
-      float ink(vec2 p){return texture2D(map,clamp(p,vec2(.001),vec2(.999))).a;}
-      void main(){
-        float forming=1.-reveal,breaking=dissolve;
-        vec2 p=uv0;
-        float n=fbm(p*vec2(8.,4.)+vec2(time*.12,-time*.09));
-        float n2=fbm(p*vec2(13.,6.)+vec2(4.7,-time*.16));
-        vec2 drift=vec2(n-.5,n2-.5);
-        p+=drift*(forming*.035+breaking*.04);
-        p.y-=breaking*(.025+n*.06)+forming*(n-.5)*.035;
-        float energy=max(forming,breaking);
-        float radius=forming*.014+breaking*.024;
-        float core=ink(p);
-        float vapor=(ink(p+vec2(radius,0.))+ink(p-vec2(radius,0.))+ink(p+vec2(0.,radius*1.7))+ink(p-vec2(0.,radius*1.7)))*.25;
-        float gather=smoothstep(n2-.14,n2+.14,reveal*1.3-.12);
-        float scatter=1.-smoothstep(n-.18,n+.18,dissolve*1.35-.12);
-        float wisps=smoothstep(.22,.76,fbm(p*vec2(50.,18.)+drift*3.));
-        float plume=ink(p+vec2(drift.x*.02,-energy*.028))*.4+ink(p+vec2(drift.x*.04,-energy*.058))*.35+ink(p+vec2(drift.x*.06,-energy*.09))*.25;
-        float resolved=core*reveal*reveal*pow(1.-breaking,2.5);
-        float mist=(vapor*.5+plume*.5)*(forming*.55+breaking*.65)*(.25+wisps*.75);
-        float alpha=(resolved+mist)*gather*scatter;
-        alpha*=smoothstep(0.,.08,reveal)*(1.-smoothstep(.91,1.,dissolve));
-        gl_FragColor=vec4(vec3(.953,.937,.901),clamp(alpha,0.,1.));
-      }`});
-    const scene=new THREE.Scene(),camera=new THREE.Camera();scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),material));
-    let width=0,height=0,last='';
-    host.append(renderer.domElement);host.classList.add('has-smoke-canvas');
-    return {draw(reveal,dissolve,elapsed){
-      const w=Math.round(host.clientWidth),h=Math.round(host.clientHeight);
-      if(!w||!h)return;
-      const state=reveal.toFixed(4)+':'+dissolve.toFixed(4)+':'+((reveal>0&&reveal<1)||(dissolve>0&&dissolve<1)?elapsed.toFixed(2):'still');
-      if(state===last&&width===w&&height===h)return;
-      if(width!==w||height!==h){renderer.setSize(w,h,false);width=w;height=h;}
-      material.uniforms.reveal.value=reveal;material.uniforms.dissolve.value=dissolve;material.uniforms.time.value=elapsed;
-      renderer.render(scene,camera);last=state;
-      host.dataset.smokeReveal=reveal.toFixed(3);host.dataset.smokeDissolve=dissolve.toFixed(3);
-    }};
-  }catch(error){renderer?.dispose();return null;}
+  const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+  if(!ctx)return null;
+  const source=document.createElement('canvas'),ink=source.getContext('2d',{willReadFrequently:true});
+  if(!ink)return null;
+  const count=48;
+  let width=0,height=0,dpr=1,layers=[],last='',fontVersion=0,builtFont=-1;
+  const title=host.parentElement.querySelector('h2');
+  const random=(x,y)=>{const v=Math.sin(x*127.1+y*311.7)*43758.5453;return v-Math.floor(v);};
+  document.fonts?.ready.then(()=>{fontVersion++;window.dispatchEvent(new Event('resize'));});
+  function rebuild(w,h){
+    width=w;height=h;builtFont=fontVersion;dpr=Math.min(devicePixelRatio||1,1.5);
+    canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+    source.width=canvas.width;source.height=canvas.height;
+    const sw=source.width,sh=source.height,style=getComputedStyle(title);
+    ink.setTransform(dpr,0,0,dpr,0,0);
+    ink.font=style.fontWeight+' '+style.fontSize+' '+style.fontFamily;
+    if('letterSpacing' in ink)ink.letterSpacing=style.letterSpacing;
+    ink.fillStyle=style.color;ink.textAlign='center';ink.textBaseline='middle';
+    ink.fillText(title.textContent,w/2,h/2,w*.94);
+    const pixels=ink.getImageData(0,0,sw,sh);
+    const buffers=Array.from({length:count},()=>ink.createImageData(sw,sh));
+    // Each pixel belongs to one layer: the resting title has no opacity buildup.
+    for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){
+      const offset=(y*sw+x)*4;
+      if(!pixels.data[offset+3])continue;
+      const bucket=Math.min(count-1,Math.floor(count*(x/sw*.65+random(x,y)*.35)));
+      buffers[bucket].data.set(pixels.data.subarray(offset,offset+4),offset);
+    }
+    layers=buffers.map((data,i)=>{
+      const layer=document.createElement('canvas');layer.width=sw;layer.height=sh;
+      layer.getContext('2d').putImageData(data,0,0);
+      return {canvas:layer,dx:w*(.12+random(i,2)*.24),dy:h*(-.65+random(i,3)*1.05),rotation:(random(i,4)-.5)*.3};
+    });
+  }
+  host.append(canvas);host.classList.add('has-smoke-canvas');
+  return {draw(reveal,dissolve){
+    const w=Math.round(host.clientWidth),h=Math.round(host.clientHeight);
+    if(!w||!h)return;
+    const state=reveal.toFixed(4)+':'+dissolve.toFixed(4);
+    if(width!==w||height!==h||builtFont!==fontVersion){rebuild(w,h);last='';}
+    if(state===last)return;
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+    if(dissolve<=0&&reveal>=1){
+      ctx.drawImage(source,0,0,w,h);
+    }else if(dissolve<1){
+      layers.forEach((layer,i)=>{
+        const arrival=clamp((reveal-i/count*.32)/.68);
+        const gathering=1-arrival;
+        const local=clamp((dissolve-i/count*.48)/.52);
+        const travel=local*local,gatherTravel=gathering*gathering;
+        ctx.save();ctx.globalAlpha=ease(arrival)*(1-ease(local));
+        ctx.translate(w/2+layer.dx*(travel-gatherTravel),h/2+layer.dy*(travel+gatherTravel));
+        ctx.rotate(layer.rotation*(travel-gatherTravel));
+        ctx.drawImage(layer.canvas,-w/2,-h/2,w,h);ctx.restore();
+      });
+    }
+    ctx.globalAlpha=1;last=state;
+    host.dataset.smokeReveal=reveal.toFixed(3);host.dataset.smokeDissolve=dissolve.toFixed(3);
+  }};
 };
 window.dispatchEvent(new Event('learning-art-ready'));
-
