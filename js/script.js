@@ -363,9 +363,9 @@
         text.descriptionLines.forEach((node,i)=>{if(time<650+i*360){node.style.opacity='0';node.style.transform='translateY(105%)';}});
         if(text.ending&&time<text.detailAt+350){text.ending.style.opacity='0';text.ending.style.transform='translateY(7px)';}
         if(text.detail&&time<text.detailAt){text.detail.style.opacity='0';text.detail.style.transform='translateY(8px)';}
-        const headingIn=!pinned||reduced.matches?1:smooth((local+.14)/.26);
+        const headingIn=!pinned||reduced.matches?1:smooth((local+.14)/.30);
         text.lines.forEach(line=>{line.firstElementChild.style.opacity=String(headingIn);line.firstElementChild.style.transform='translateY('+((1-headingIn)*105)+'%)';});
-        const exit=pinned&&index<learningScenes.length-1?smooth((local-.91)/.09):0;
+        const exit=pinned&&index<learningScenes.length-1?smooth((local-.78)/.22):0;
         text.heading.style.opacity=String(1-exit);
         scene.style.setProperty('--reading-exit',exit.toFixed(4));
         text.body.style.opacity=String(1-exit);
@@ -407,8 +407,8 @@
   function layoutLearning(){
     const enabled=!reduced.matches&&innerHeight>=620;
     learning.classList.toggle('is-pinned',enabled);
-    // Reserve a complete paragraph hold between the reading reveal and departure.
-    learning.style.setProperty('--learning-distance',Math.max(innerHeight*8,(track.scrollWidth-track.clientWidth)*1.7)*(learningSceneLengths.total/4.75)+'px');
+    // Shorten the whole sequence equally, retaining the reading interval in every scene.
+    learning.style.setProperty('--learning-distance',Math.max(innerHeight*8,(track.scrollWidth-track.clientWidth)*1.7)*(learningSceneLengths.total/4.75)*.85+'px');
     const trackOffset=track.getBoundingClientRect().top-learningStage.getBoundingClientRect().top;
     const openingCenter=enabled?innerHeight/2-parseFloat(getComputedStyle(learningStage).top)-trackOffset:track.clientHeight/2;
     track.style.setProperty('--opening-center',openingCenter+'px');
@@ -424,30 +424,22 @@
     const inWelcome=box.top<innerHeight*.35&&box.bottom>0;
     if(inWelcome&&smokeStart===null){
       smokeStart=now;
-      if(target<learningSceneLengths.intro/learningSceneLengths.total)learningDisplay=Math.min(learningDisplay,.2/learningSceneLengths.total);
     }
     if(box.top>innerHeight*.9)smokeStart=null;
     const elapsed=smokeStart===null?0:Math.max(0,now-smokeStart);
-    // Let the grains gather fully, then hold the readable title before its exit.
-    const introHolding=inWelcome&&elapsed<2700&&learningDisplay<learningSceneLengths.intro/learningSceneLengths.total;
-    const effectiveTarget=introHolding?Math.min(target,.2/learningSceneLengths.total):target;
-    if(introHolding)learningDisplay=Math.min(learningDisplay,.2/learningSceneLengths.total);
+    // A single response curve drives text, artwork and transitions in both directions.
     if(box.top>innerHeight||box.bottom<0)learningDisplay=target;
     else{
-      let next=learningDisplay+(effectiveTarget-learningDisplay)*(1-Math.exp(-delta/145));
-      // Fast wheel input must not jump over the opening's line-by-line sequence.
-      if(next>learningDisplay&&learningDisplay<learningSceneLengths.intro/learningSceneLengths.total)next=Math.min(next,learningDisplay+delta/1000*(.55/learningSceneLengths.total));
-      else if(next>learningDisplay)next=Math.min(next,learningDisplay+delta/1000*(.8/learningSceneLengths.total));
-      learningDisplay=next;
+      learningDisplay+=(target-learningDisplay)*(1-Math.exp(-delta/220));
     }
-    if(Math.abs(effectiveTarget-learningDisplay)<.00006)learningDisplay=effectiveTarget;
+    if(Math.abs(target-learningDisplay)<.00006)learningDisplay=target;
     // All three models receive the same reading and transition distance.
     const scrollUnits=learningDisplay*learningSceneLengths.total;
     const timeline=scrollUnits<learningSceneLengths.intro?scrollUnits/learningSceneLengths.intro*2:2+(scrollUnits-learningSceneLengths.intro)/learningSceneLengths.model;
     learningMotionPhase=timeline;
     let position;
     if(timeline<2)position=smooth((timeline-1.56)/.44);
-    else{const step=Math.min(3,Math.floor(timeline)-1);position=step===3?3:step+smooth((timeline-(step+1)-.84)/.16);}
+    else{const step=Math.min(3,Math.floor(timeline)-1);position=step===3?3:step+smooth((timeline-(step+1)-.78)/.22);}
     track.scrollLeft=position*track.clientWidth;
     let modelsAnimating=false;
     if(box.top<innerHeight&&box.bottom>0&&!document.hidden){
@@ -463,7 +455,7 @@
     const dissolve=smooth((timeline-.4)/.65);
     if(smokeArt){welcome.style.opacity='1';welcome.style.filter='none';smokeArt.draw(reveal,dissolve,elapsed/1000);}
     else if(welcome){welcome.style.opacity=String(reveal*(1-dissolve));welcome.style.filter='blur('+((1-reveal)*14+dissolve*18)+'px)';}
-    return Math.abs(target-learningDisplay)>.00006||(inWelcome&&elapsed<2700)||modelsAnimating;
+    return Math.abs(target-learningDisplay)>.00006||(inWelcome&&elapsed<2000)||modelsAnimating;
   }
   addEventListener('resize',layoutLearning);reduced.addEventListener('change',layoutLearning);layoutLearning();
   document.fonts?.ready.then(()=>{layoutLearning();schedule();});
