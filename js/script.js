@@ -451,8 +451,10 @@
       }
     }
     updateTrack();
-    const reveal=smooth((elapsed-100)/1900);
-    const dissolve=smooth((timeline-.4)/.65);
+    // Scrolling must finish the entrance before it can start dissolving the title.
+    // The timed entrance still lets the title gather when the visitor pauses here.
+    const reveal=Math.max(smooth((elapsed-100)/1900),smooth(timeline/.30));
+    const dissolve=smooth((timeline-.55)/.65);
     if(smokeArt){welcome.style.opacity='1';welcome.style.filter='none';smokeArt.draw(reveal,dissolve,elapsed/1000);}
     else if(welcome){welcome.style.opacity=String(reveal*(1-dissolve));welcome.style.filter='blur('+((1-reveal)*14+dissolve*18)+'px)';}
     return Math.abs(target-learningDisplay)>.00006||(inWelcome&&elapsed<2000)||modelsAnimating;
