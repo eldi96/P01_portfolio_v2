@@ -408,7 +408,7 @@
     const enabled=!reduced.matches&&innerHeight>=620;
     learning.classList.toggle('is-pinned',enabled);
     // Shorten the whole sequence equally, retaining the reading interval in every scene.
-    learning.style.setProperty('--learning-distance',Math.max(innerHeight*8,(track.scrollWidth-track.clientWidth)*1.7)*(learningSceneLengths.total/4.75)*.85+'px');
+    learning.style.setProperty('--learning-distance',Math.max(innerHeight*8,(track.scrollWidth-track.clientWidth)*1.7)*(learningSceneLengths.total/4.75)*.97+'px');
     const trackOffset=track.getBoundingClientRect().top-learningStage.getBoundingClientRect().top;
     const openingCenter=enabled?innerHeight/2-parseFloat(getComputedStyle(learningStage).top)-trackOffset:track.clientHeight/2;
     track.style.setProperty('--opening-center',openingCenter+'px');
@@ -453,8 +453,8 @@
     updateTrack();
     // Scrolling must finish the entrance before it can start dissolving the title.
     // The timed entrance still lets the title gather when the visitor pauses here.
-    const reveal=Math.max(smooth((elapsed-100)/1900),smooth(timeline/.30));
-    const dissolve=smooth((timeline-.55)/.65);
+    const reveal=Math.max(smooth((elapsed-100)/2100),smooth(timeline/.38));
+    const dissolve=smooth((timeline-.72)/.65);
     if(smokeArt){welcome.style.opacity='1';welcome.style.filter='none';smokeArt.draw(reveal,dissolve,elapsed/1000);}
     else if(welcome){welcome.style.opacity=String(reveal*(1-dissolve));welcome.style.filter='blur('+((1-reveal)*14+dissolve*18)+'px)';}
     return Math.abs(target-learningDisplay)>.00006||(inWelcome&&elapsed<2000)||modelsAnimating;
