@@ -55,7 +55,9 @@ if(host&&glass){
         }
         vec3 surface=transmitted*.72+vec3(.013,.013,.014);
         vec2 local=(px-panel.xy)/panel.zw;
-        float reflection=exp(-dot((local-pointer)*vec2(1.25,1.8),(local-pointer)*vec2(1.25,1.8))*6.);
+        // Keep illumination behind the copy stable. Pointer feedback belongs
+        // to the bevel only, never to the readable center of the glass.
+        float reflection=exp(-dot((local-vec2(.35,.25))*vec2(1.25,1.8),(local-vec2(.35,.25))*vec2(1.25,1.8))*6.);
         surface+=vec3(.025,.024,.021)*reflection;
         // A narrow outer reflection and a separate inner dark lip give glass thickness.
         float light=.23+.77*pow(max(dot(grad,normalize(vec2(-.65,-.8))),0.),2.);
@@ -63,6 +65,13 @@ if(host&&glass){
         float inner=exp(-pow((d+3.)/1.0,2.));
         surface*=1.-inner*.23;
         surface+=outer*light*vec3(.43,.42,.38);
+        vec2 cursorDistance=(local-pointer)*panel.zw;
+        float proximity=exp(-dot(cursorDistance,cursorDistance)/(155.*155.));
+        surface+=outer*proximity*vec3(.48,.35,.16);
+        // Confine the softer gold reflection to the inner 6px of the bevel.
+        // The panel center and the HTML copy retain their original contrast.
+        float rimGlow=exp(-abs(d)/2.2)*(1.-smoothstep(3.,6.,abs(d)));
+        surface+=rimGlow*proximity*vec3(.10,.068,.025);
         surface+=exp(-pow((d+4.7)/.65,2.))*.024;
         gl_FragColor=vec4(mix(bg,surface,inside),1.);
       }`
@@ -70,7 +79,10 @@ if(host&&glass){
     const scene=new THREE.Scene(),camera=new THREE.Camera();
     scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),material));
     let ready=false,active=false,frame=0,last=0;
-    const target=new THREE.Vector2(.35,.25),system=matchMedia('(prefers-reduced-motion: reduce)');
+    const resting=new THREE.Vector2(-2,-2);
+    const target=resting.clone(),system=matchMedia('(prefers-reduced-motion: reduce)');
+    const finePointer=matchMedia('(hover: hover) and (pointer: fine)');
+    uniforms.pointer.value.copy(resting);
     const reduced=()=>window.portfolioMotion?.matches??system.matches;
     function draw(now){
       frame=0;if(!ready||!active||document.hidden)return;
@@ -80,23 +92,30 @@ if(host&&glass){
       uniforms.panel.value.set(g.left-r.left,g.top-r.top,g.width,g.height);
       uniforms.radius.value=parseFloat(getComputedStyle(glass).borderRadius)||24;
       const dt=Math.min((now-last)/1000,.05);last=now;
-      if(reduced())uniforms.pointer.value.set(.35,.25);
-      else uniforms.pointer.value.lerp(target,1-Math.exp(-dt*3));
+      if(reduced()||!finePointer.matches)uniforms.pointer.value.copy(resting);
+      else uniforms.pointer.value.lerp(target,1-Math.exp(-dt*18));
       renderer.render(scene,camera);section.classList.add('glass-render-ready');
-      if(!reduced()&&uniforms.pointer.value.distanceTo(target)>.001)frame=requestAnimationFrame(draw);
+      if(!reduced()&&finePointer.matches&&uniforms.pointer.value.distanceTo(target)>.001)frame=requestAnimationFrame(draw);
     }
     function schedule(){if(!frame&&active&&ready){last=performance.now();frame=requestAnimationFrame(draw);}}
-    new THREE.TextureLoader().load(new URL('../assets/contact-charcoal-gold-v5.png',import.meta.url).href,texture=>{
+    new THREE.TextureLoader().load(new URL('../assets/contact-charcoal-gold-v5.webp',import.meta.url).href,texture=>{
       uniforms.image.value=texture;uniforms.imageSize.value.set(texture.image.width,texture.image.height);ready=true;schedule();
     },undefined,()=>{renderer.dispose();canvas.remove();});
     new ResizeObserver(schedule).observe(section);new ResizeObserver(schedule).observe(glass);
     new IntersectionObserver(([entry])=>{active=entry.isIntersecting;if(active)schedule();else{cancelAnimationFrame(frame);frame=0;}},{rootMargin:'120px'}).observe(section);
-    section.addEventListener('pointermove',event=>{if(reduced()||event.pointerType==='touch')return;const r=glass.getBoundingClientRect();target.set(.3+((event.clientX-r.left)/r.width-.5)*.16,.2+((event.clientY-r.top)/r.height-.5)*.12);schedule();});
-    section.addEventListener('pointerleave',()=>{target.set(.35,.25);schedule();});
+    function resetPointer(){target.copy(resting);uniforms.pointer.value.copy(resting);schedule();}
+    section.addEventListener('pointermove',event=>{
+      if(reduced()||!finePointer.matches||event.pointerType!=='mouse')return;
+      const r=glass.getBoundingClientRect();
+      target.set((event.clientX-r.left)/r.width,(event.clientY-r.top)/r.height);
+      schedule();
+    },{passive:true});
+    section.addEventListener('pointerleave',resetPointer);
+    addEventListener('blur',resetPointer);
     // Update during the existing section reveal, without a continuous idle render loop.
     addEventListener('scroll',schedule,{passive:true});addEventListener('resize',schedule);
     document.addEventListener('visibilitychange',schedule);document.fonts.ready.then(schedule);
-    system.addEventListener('change',schedule);window.portfolioMotion?.addEventListener('change',schedule);
+    system.addEventListener('change',resetPointer);finePointer.addEventListener('change',resetPointer);window.portfolioMotion?.addEventListener('change',resetPointer);
     canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();ready=false;cancelAnimationFrame(frame);section.classList.remove('glass-render-ready');});
     canvas.addEventListener('webglcontextrestored',()=>{ready=true;schedule();});
   }

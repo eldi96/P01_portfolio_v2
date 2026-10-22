@@ -13,6 +13,9 @@
   const chapters=[...document.querySelectorAll('main>section')];
   const navLinks=[...document.querySelectorAll('.site-header nav a,.chapter-dots a')];
   const projectCards=[...document.querySelectorAll('.project-card')];
+  const projectFilms=projectCards.map(card=>card.querySelector('.project-single-window'));
+  const heroPhase=document.querySelector('.hero-phase');
+  const readingProgress=document.querySelector('.reading-progress');
   const filmObserver=new IntersectionObserver(entries=>entries.forEach(entry=>entry.target.classList.toggle('is-film-visible',entry.isIntersecting)),{threshold:.12});
   document.querySelectorAll('.project-single-window').forEach(film=>filmObserver.observe(film));
   const clamp=(n,a=0,b=1)=>Math.max(a,Math.min(b,n));
@@ -69,16 +72,16 @@
       button.inert=hotspotAlpha<=.15;button.setAttribute('aria-hidden',String(hotspotAlpha<=.15));
     });
     if(hotspotAlpha<=.15&&noteOpen)closeNote({restoreFocus:false});
-    document.querySelector('.hero-phase').textContent=p>.5?'A SHIFT IN PERSPECTIVE':'A LITTLE ABOUT ME';
+    heroPhase.textContent=p>.5?'A SHIFT IN PERSPECTIVE':'A LITTLE ABOUT ME';
     header.classList.toggle('is-scrolled',scrollY>30);
     const max=document.documentElement.scrollHeight-innerHeight;
-    document.querySelector('.reading-progress').style.transform='scaleX('+clamp(scrollY/Math.max(1,max))+')';
+    readingProgress.style.transform='scaleX('+clamp(scrollY/Math.max(1,max))+')';
     let active=chapters[0];
     chapters.forEach(section=>{if(section.getBoundingClientRect().top<innerHeight*.42)active=section;});
     if(scrollY>=max-5)active=chapters.at(-1);
     navLinks.forEach(link=>{if(link.hash==='#'+active.id)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');});
     projectCards.forEach((card,index)=>{
-      const film=card.querySelector('.project-single-window');
+      const film=projectFilms[index];
       if(film){
         const entry=reduced.matches?1:smooth((innerHeight*.96-card.getBoundingClientRect().top)/(innerHeight*.8));
         film.style.setProperty('--film-progress',entry.toFixed(4));
@@ -103,8 +106,8 @@
   // The image's two hotspots open one non-modal notebook, with four concise pages.
   const notebook=document.querySelector('#about-note');
   const noteTriggers=[...document.querySelectorAll('[data-about-note]')];
-  let noteOrigin=null,noteAnimation,noteTimeline,introMotion,stopPerspectiveMini;
-  let noteMotion='closed',noteMotionId=0,restoreNoteFocus=true;
+  let noteOrigin=null,noteTimeline,introMotion,stopPerspectiveMini;
+  let noteMotion='closed',noteMotionId=0;
   const motion=window.anime;
   const notePages=[
     {label:'01 / IDENTITY',title:'이해할 때까지, 직접 확인합니다.',html:'<p>궁금한 것을 그냥 넘기기보다, 직접 확인하고 원리를 이해하려 합니다.</p><p>먼저 문제를 작은 단위로 나누고, 직접 만들어 보며 막힌 이유를 찾습니다. 이해한 내용과 판단의 과정은 다음 시도를 위한 기록으로 남깁니다.</p>'},
@@ -160,7 +163,7 @@
     notebook.querySelector('.note-dialog-body').innerHTML=page.html;
     notebook.querySelector('.note-dialog-count').textContent='0'+(index-noteGroup+1)+' / 02';
     notebook.querySelectorAll('[data-note-page]').forEach(button=>{const n=Number(button.dataset.notePage);button.hidden=n<noteGroup||n>noteGroup+1;button.setAttribute('aria-pressed',String(n===index));});
-    noteTimeline?.cancel();noteAnimation?.cancel();
+    noteTimeline?.cancel();
     if(index===3)setupPerspectiveMini();
     if(!notebook.hidden){moveNoteIndicator(animate);revealNoteContent(animate?110:0);}
   }
@@ -211,14 +214,14 @@
   }
 
   function clearNoteMotion(){
-    noteTimeline?.cancel();noteAnimation?.cancel();introMotion?.cancel();
+    noteTimeline?.cancel();introMotion?.cancel();
     notebook.style.opacity='';notebook.style.transform='';
     notebook.querySelectorAll('.note-title-mask>span,.note-dialog-body>*,.note-back,.note-dialog-nav,.note-dialog-label,.note-dialog-footer').forEach(n=>{n.style.opacity='';n.style.transform='';});
   }
   function openNote(button){
     if(noteOpen&&noteOrigin===button){closeNote();return;}
     ++noteMotionId;clearNoteMotion();
-    noteOrigin=button;noteGroup=Number(button.dataset.aboutNote);restoreNoteFocus=true;
+    noteOrigin=button;noteGroup=Number(button.dataset.aboutNote);
     notebook.hidden=true;showNotePage(noteGroup,false);
     noteOpen=true;noteMotion='opening';notebook.hidden=false;notebook.inert=false;
     noteTriggers.forEach(item=>item.setAttribute('aria-expanded',String(item===button)));
@@ -261,6 +264,9 @@
   learningStage.append(...learning.children);learning.append(learningStage);
   const prev=document.querySelector('.track-prev'),next=document.querySelector('.track-next');
   const learningScenes=[...track.children];
+  const learningObjects=learningScenes.map(scene=>scene.querySelector('.learning-object'));
+  const trackCount=document.querySelector('.track-count');
+  const trackProgress=document.querySelector('.track-progress>span');
   learningScenes.slice(1).forEach(scene=>{
     const label=scene.querySelector('.learning-backtype');
     const parts=label.textContent.trim().match(/^(\d{2})\s*\/\s*(.+)$/);
@@ -324,7 +330,7 @@
     learningIndex=positions.reduce((best,p,i)=>Math.abs(p-track.scrollLeft)<=Math.abs(positions[best]-track.scrollLeft)?i:best,0);
     if(prev)prev.disabled=track.scrollLeft<3;
     if(next)next.disabled=track.scrollLeft>=track.scrollWidth-track.clientWidth-3;
-    const count=document.querySelector('.track-count');
+    const count=trackCount;
     if(count)count.textContent=learningIndex===0?'INTRO / 03':'0'+learningIndex+' / 03';
     const scenePosition=track.scrollLeft/Math.max(1,track.clientWidth);
     learningScenes.forEach((scene,index)=>{
@@ -373,15 +379,10 @@
       }
       scene.style.setProperty('--scene-presence',String(entry));
       if(index>0)scene.style.setProperty('--backdrop-drift',(clamp(offset,-1,1)*14)+'px');
-      const object=scene.querySelector('.learning-object');
+      const object=learningObjects[index];
       if(object){
         const arrival=index===1&&pinned&&!reduced.matches?smooth((scenePosition-.15)/.85):1;
         object.style.setProperty('--object-arrival',arrival.toFixed(4));
-        const phase=reduced.matches?.2:learning.classList.contains('is-pinned')?clamp(learningMotionPhase-(index+1)):.2;
-        if(Math.abs(offset)<1.2){
-          const autoTurn=!reduced.matches?modelRotationTimes[index]*Math.PI*2/60+.35:null;
-          // The shared network is rendered once after all text scenes update.
-        }
         object.style.setProperty('--object-opacity',String((.85+.15*entry)*(1-focus*.10)*arrival));
         object.style.setProperty('--object-blur',((1-entry)*.35+(1-arrival)*1.5)+'px');
       }
@@ -390,7 +391,7 @@
     });
     window.drawLearningNetwork?.(reduced.matches?4.9:learningMotionPhase,reduced.matches?null:modelRotationTimes.reduce((sum,value)=>sum+value,0)*Math.PI*2/60+.35);
     const ratio=track.scrollLeft/Math.max(1,track.scrollWidth-track.clientWidth);
-    const progressLine=document.querySelector('.track-progress>span');
+    const progressLine=trackProgress;
     if(progressLine)progressLine.style.transform='translateX('+(ratio*300)+'%)';
   }
   function moveTrack(direction){
@@ -479,7 +480,7 @@
   principleStage.append(...principleSection.children);principleSection.append(principleStage);
   const detail=document.querySelector('.principle-detail');
   const principleButtons=[...document.querySelectorAll('[data-principle]')];
-  let detailAnimation,figureAnimation;
+  let detailAnimation;
   function selectPrinciple(index){
     if(detail.dataset.step===String(index))return;
     const data=principles[index];
@@ -496,7 +497,7 @@
     });
     const source=Object.assign(document.createElement('a'),{className:'principle-source',href:data.link,textContent:data.linkText+' ↗',target:'_blank',rel:'noopener noreferrer'});
     content.replaceChildren(Object.assign(document.createElement('p'),{className:'principle-case',textContent:data.paragraphs[0]}),Object.assign(document.createElement('h3'),{textContent:data.caption}),evidence,source);
-    detailAnimation?.cancel();figureAnimation?.cancel();
+    detailAnimation?.cancel();
     if(!reduced.matches){
       detailAnimation=content.animate([{opacity:0,transform:'translateY(9px)'},{opacity:1,transform:'translateY(0)'}],{duration:480,easing:'cubic-bezier(.22,1,.36,1)'});
 
@@ -530,29 +531,3 @@
     try{await navigator.clipboard.writeText('eldi96@naver.com');status.textContent='이메일 주소를 복사했습니다.';window.dispatchEvent(new Event('contact-copy-success'));}catch{status.textContent='eldi96@naver.com을 선택해 복사해 주세요.';}
   });
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

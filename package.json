@@ -3,9 +3,6 @@
   "private": true,
   "scripts": {
     "dev": "node server.mjs",
-    "check": "node --check js/motion-preference.js && node --check js/script.js && node --check js/learning-art.js && node --check js/contact-art.js"
-  },
-  "dependencies": {
-    "three": "0.180.0"
+    "check": "node --check js/start-position.js && node --check js/motion-preference.js && node --check js/script.js && node --check js/learning-art.js && node --check js/contact-art.js"
   }
 }

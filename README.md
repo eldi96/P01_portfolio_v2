@@ -11,11 +11,11 @@ ELDI의 개발자 포트폴리오입니다. 기존 `eldi96/portfolio`와 별도�
 ## 로컬 개발용 실행
 
 ```sh
-npm install
 npm run dev
 ```
 
 기본 로컬 주소는 http://127.0.0.1:4173 입니다. 별도 빌드 없이 정적 파일로 배포할 수 있습니다.
+Node.js만 있으면 실행할 수 있으며 별도 의존성 설치는 필요하지 않습니다. 브라우저용 Anime.js와 Three.js는 `js/vendor/`의 파일을 사용합니다.
 `npm run check`로 JavaScript 문법을 검사합니다.
 
 ## 구성
