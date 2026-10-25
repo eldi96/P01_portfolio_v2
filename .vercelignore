@@ -1,0 +1,17 @@
+.git/
+.vercel/
+.env*
+.neon
+.enrollment-*.txt
+node_modules/
+original/
+research/
+tests/
+test-results/
+coverage/
+playwright-report/
+dist/
+assets/contact-charcoal-curves-v1.png
+assets/contact-charcoal-gold-v2.png
+assets/contact-charcoal-gold-v3.png
+assets/contact-charcoal-gold-v4.png

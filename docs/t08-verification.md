@@ -1,0 +1,48 @@
+# T08 패스키 통합 검증 — 2026-10-25
+
+## 적용 범위
+
+Notion 개발 기록의 `T08-passkey-handoff.txt`(기준 3ff92f6, 인계 구현 9e79f59)를 `codex/t08-passkey`에서 통합했다. 공개 index.html에는 푸터의 `나만의 공간` 링크만 추가했고 기존 공개 텍스트·그래픽·섹션은 보존했다. 기존 neon.ts, .neon 컨텍스트와 .env.local의 Neon 접속값은 유지했다.
+
+- 등록·로그인·일회용 질문·세션·개인 기록·패스키 관리: `api/`, `lib/`, `migrations/`.
+- 최초 등록은 운영자 CLI가 발급하는 30분 초대이며 브라우저 등록 전에는 계정에 패스키가 없다.
+- 기존 Neon production을 유지하고 `dev-t08-passkey`에서 검증했다. production에는 새 `t08_` 테이블만 추가했다.
+- Vercel 기존 프로젝트 `p01-portfolio-v2`를 사용했다. Preview는 개발 DB, Production은 기존 production DB다.
+- Vercel DATABASE_URL은 Secret, 운영 APP_ORIGIN은 `https://p01-portfolio-v2.vercel.app` Config다. 실제 값은 문서/소스/정적 출력에 포함하지 않는다.
+- 인계 코드의 Zod 4.1.11 간접 취약점은 @vercel/cli-config 범위의 4.6.7 override로 수정했다. Neon 의존성은 유지했다.
+- 미사용 이미지 시안 4개는 삭제하지 않고 빌드와 업로드 대상에서 제외했다.
+
+## 완료한 검증
+
+| 항목 | 결과 | 범위 |
+| --- | --- | --- |
+| npm ci | 성공 | 최종 잠금 파일 설치 |
+| npm test | 10/10 통과 | PGlite PostgreSQL + 소프트웨어 인증기 + 실제 WebAuthn 서명 검증 |
+| 실제 Neon 개발 DB 테스트 | 10/10 통과 | pg + 실제 PostgreSQL 18, 개발 브랜치 전용 |
+| Vercel 미리보기 HTTP | 22개 통과 | Vercel 함수 → 개발 Neon DB → 쿠키·응답, 소프트웨어 인증기 |
+| 운영 API | 6개 통과 | 실제 production DB, 세션·미인증 거절·Origin 검사 |
+| 대표 주소 익명 확인 | 9개 통과 | 공개/로그인 HTML 200, 미인증 자료·키 401, 설정/서버 소스 경로 404 |
+| npm run check / build | 성공 | 서버·브라우저 JS 구문과 정적 빌드 |
+| 정적 출력 경계 | 통과 | env·서버·초대·테스트·연구 자료 없음 |
+| npm audit --omit=dev | 취약점 0 | 설치된 운영 의존성 |
+| 마이그레이션 재실행 | Already applied | 개발 브랜치 재실행의 멱등성 |
+
+자동 검사에서는 정상 등록/로그인, 서명·Origin·질문·사용자 확인 오류, 질문 재사용, 계정 간 양방향 접근, 두 번째 키, 삭제한 키·관련 세션, 마지막 키 삭제 거절, 만료와 로그아웃을 검증했다. 테스트 데이터는 개발 DB에서 정리했다.
+
+운영 배포: `dpl_9ZenZKom8GnSiinnmk6wmY47PzJC`, production READY 후 promote 성공.
+공개 주소: https://p01-portfolio-v2.vercel.app/
+개인 공간: https://p01-portfolio-v2.vercel.app/private.html
+브라우저에서 운영 로그인 화면·오류 없는 콘솔을 확인했다. 공개 페이지의 익명 접근을 위해 Vercel 배포 보호 설정을 해제하지 않았다.
+
+## 미완료·한계
+
+- 실제 OS/기기의 지문·얼굴·PIN을 통한 등록/로그인, 독립 패스키 두 개의 등록·삭제 후 확인, 기기별 화면 증거는 사용자 직접 확인이 필요하다. 소프트웨어 인증기 검증을 실제 기기 테스트로 표시하지 않는다.
+- 전체 패스키 분실 시 셀프 복구와 관리 작업 직전 재인증은 인계 코드의 미구현 범위로 유지한다. 운영자가 계정 DB에 접근할 수 있다는 이유로 본인 확인 절차를 생략해서는 안 된다.
+- 이번 작업은 Vercel CLI로 배포했다. GitHub main에는 이 기능을 아직 반영하지 않았으므로 기존 main을 다시 배포하면 이전 코드가 배포될 수 있다.
+- runtime의 비공개 응답은 no-store이고 정적 잠금 화면에는 개인 기록이 없다. 생체정보·PIN·개인키·초대 링크·세션 토큰은 검증 기록에 저장하지 않았다.
+
+## 증거와 재현
+
+로컬 `test-results/passkey-api.json`, `passkey-neon.json`, `passkey-vercel-preview.json`, `passkey-vercel-production.json`, `production-public.json`에 비밀값을 제외한 결과가 있다. 산출물은 Git 제외다.
+
+`tests/http-check.mjs`는 격리된 미리보기 URL과 개발 DB만 허용한다. 실제 DB 테스트는 `T08_LIVE_DB=1` 및 전용 개발 브랜치 환경파일을 명시해야 하며 production에서는 실행하지 않는다. 일반 `npm test`는 DB 접속 정보 없이 PGlite로 실행한다.

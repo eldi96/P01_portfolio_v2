@@ -2,7 +2,32 @@
   "name": "eldi-portfolio-v2",
   "private": true,
   "scripts": {
-    "dev": "node server.mjs",
-    "check": "node --check js/start-position.js && node --check js/motion-preference.js && node --check js/script.js && node --check js/learning-art.js && node --check js/contact-art.js"
+    "dev": "node --env-file-if-exists=.env.local server.mjs",
+    "check": "node --check js/start-position.js && node --check js/motion-preference.js && node --check js/script.js && node --check js/learning-art.js && node --check js/contact-art.js && node --check js/private.js && node --check lib/passkeys.mjs && node --check api/passkey.js",
+    "build": "node scripts/build.mjs",
+    "test": "node --test --test-isolation=none tests/*.test.mjs",
+    "db:migrate": "node --env-file=.env.local scripts/migrate.mjs",
+    "account:create": "node --env-file=.env.local scripts/enroll.mjs"
+  },
+  "dependencies": {
+    "@neon/config": "^1.9.4",
+    "@neon/env": "^1.6.5",
+    "@simplewebauthn/browser": "14.0.0",
+    "@simplewebauthn/server": "14.0.3",
+    "@vercel/functions": "3.10.3",
+    "pg": "8.23.1"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.11",
+    "@levischuck/tiny-cbor": "0.3.6"
+  },
+  "overrides": {
+    "@vercel/cli-config": {
+      "zod": "4.6.7"
+    }
   }
 }
