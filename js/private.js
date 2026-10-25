@@ -1,10 +1,11 @@
 'use strict';
 const $ = id => document.getElementById(id);
-const status = message => { $('status').textContent = message; $('key-status').textContent = message; };
+const status = message => { for (const id of ['status','key-status','enrollment-status']) { const node=$(id); if(node)node.textContent=message; } };
 let busy = false;
 async function api(action, body, query = '') {
   const response = await fetch(`/api/passkey?action=${action}${query}`, {
     method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store',
+    signal: AbortSignal.timeout(20000),
     headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body)
   });
@@ -62,6 +63,8 @@ async function run(task) {
       status('패스키 확인이 취소됐거나 시간이 지났어요. 다시 시도할 수 있어요.');
     } else if (error.code === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED' || error.name === 'InvalidStateError') {
       status('이 저장소에는 이미 패스키가 있어요. 다른 기기 등록 링크로 아이폰에 추가해 보세요.');
+    } else if (error.name === 'TimeoutError' || error.name === 'TypeError') {
+      status('서버 응답을 받지 못했어요. 네트워크를 확인한 뒤 다시 시도해 주세요. 이미 저장한 키는 삭제하지 않아도 돼요.');
     } else { status(error.message || '패스키 확인을 완료하지 못했어요.'); }
   } finally {
     busy = false;
@@ -72,9 +75,12 @@ async function register(name, invitation) {
   status('패스키를 보관할 기기 또는 관리자를 선택해 주세요.');
   const optionsJSON = await api('register-options', { name, invitation });
   const credential = await SimpleWebAuthnBrowser.startRegistration({ optionsJSON });
+  status('기기 확인을 마쳤어요. 서버에서 등록을 확인하고 있어요.');
   await api('register-verify', { credential });
   $('invitation').value = ''; $('first-name').value = ''; $('extra-name').value = '';
   await refresh();
+  status('패스키 등록을 완료했어요. 이 기기에서 나만의 공간을 사용할 수 있어요.');
+  $('unlocked').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 $('login').addEventListener('click', () => run(async () => {
   status('등록한 패스키를 선택해 주세요.');

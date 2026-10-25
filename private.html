@@ -2,7 +2,7 @@
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex"><meta name="referrer" content="no-referrer">
 <title>나만의 공간 — ELDI</title><link rel="stylesheet" href="css/private.css">
-<script src="js/vendor/simplewebauthn.js" defer></script><script src="js/private.js" defer></script></head>
+<script src="js/vendor/simplewebauthn.js" defer></script><script src="js/private.js?v=20261025-retry" defer></script></head>
 <body><header><a href="/">ELDI<span>.</span></a><span>PRIVATE SPACE</span></header>
 <main><p class="eyebrow">PUBLIC / PRIVATE</p><h1>나만의 공간</h1>
 <p class="intro">소개 페이지는 누구나 볼 수 있어요.<br>이 공간은 등록한 패스키로만 열 수 있어요.</p>
@@ -14,7 +14,7 @@
 <p>이 기기에서 사용할 패스키를 등록해 주세요. 최초 등록 초대는 30분, 다른 기기 추가 등록 링크는 5분 동안 한 번만 사용할 수 있어요.</p>
 <form id="first-key"><label>일회용 초대<input id="invitation" autocomplete="off" maxlength="128" required></label>
 <label>패스키 이름<input id="first-name" maxlength="60" placeholder="예: 집 노트북" required></label>
-<button type="submit">이 기기에 패스키 등록</button></form></details></section>
+<button type="submit">이 기기에 패스키 등록</button><p id="enrollment-status" role="status" aria-live="polite"></p></form></details></section>
 <section id="unlocked" hidden aria-labelledby="private-title"><div class="section-top"><h2 id="private-title">비공개 기록</h2><button id="logout" type="button">로그아웃</button></div>
 <p>과제용으로 만든 가상 기록입니다. 실제 개인정보는 넣지 않았어요.</p><div id="items"></div>
 <h2>등록한 패스키</h2><ul id="keys"></ul>
