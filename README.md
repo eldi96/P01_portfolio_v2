@@ -2,7 +2,7 @@
 
 ## 🌐 사이트 바로가기
 
-**[ELDI 포트폴리오 열기 →](https://eldi96.github.io/P01_portfolio_v2/)**
+**[ELDI 포트폴리오 열기 →](https://p01-portfolio-v2.vercel.app/)**
 
 설치나 실행 없이 위 링크로 바로 볼 수 있습니다. PC와 모바일에서 접속할 수 있습니다.
 
@@ -33,8 +33,8 @@ Node.js만 있으면 실행할 수 있으며 별도 의존성 설치는 필요�
 
 ## 배포
 
-GitHub Pages에서 `main` 브랜치의 루트 디렉터리를 배포합니다.
-https://eldi96.github.io/P01_portfolio_v2/
+대표 사이트는 Vercel에서 배포합니다. 설치나 로컬 서버 실행 없이 아래 주소로 접속할 수 있습니다.
+https://p01-portfolio-v2.vercel.app/
 
 ## 라이선스 안내
 
