@@ -1,6 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
-const status = message => { $('status').textContent = message; };
+const status = message => { $('status').textContent = message; $('key-status').textContent = message; };
 let busy = false;
 async function api(action, body, query = '') {
   const response = await fetch(`/api/passkey?action=${action}${query}`, {
@@ -15,9 +15,15 @@ async function api(action, body, query = '') {
 function clearPrivate() {
   $('unlocked').hidden = true;
   $('items').replaceChildren(); $('keys').replaceChildren();
+  $('transfer').hidden = true; $('transfer-url').value = '';
 }
 async function refresh() {
   clearPrivate();
+  $('login').hidden = false;
+  if ($('invitation').value) {
+    $('locked').hidden = false; $('enrollment').open = true; $('login').hidden = true;
+    status('로그인 없이 이 기기에 패스키를 등록할 수 있어요. 이름을 입력해 주세요.'); return;
+  }
   const { user } = await api('session');
   $('locked').hidden = Boolean(user);
   if (!user) { status('잠겨 있어요. 패스키로 들어와 주세요.'); return; }
@@ -54,6 +60,8 @@ async function run(task) {
   catch (error) {
     if (error.name === 'NotAllowedError' || error.cause?.name === 'NotAllowedError' || error.code === 'ERROR_CEREMONY_ABORTED') {
       status('패스키 확인이 취소됐거나 시간이 지났어요. 다시 시도할 수 있어요.');
+    } else if (error.code === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED' || error.name === 'InvalidStateError') {
+      status('이 저장소에는 이미 패스키가 있어요. 다른 기기 등록 링크로 아이폰에 추가해 보세요.');
     } else { status(error.message || '패스키 확인을 완료하지 못했어요.'); }
   } finally {
     busy = false;
@@ -76,6 +84,19 @@ $('login').addEventListener('click', () => run(async () => {
 }));
 $('first-key').addEventListener('submit', event => { event.preventDefault(); run(() => register($('first-name').value.trim(), $('invitation').value.trim())); });
 $('extra-key').addEventListener('submit', event => { event.preventDefault(); run(() => register($('extra-name').value.trim())); });
+$('make-link').addEventListener('click', () => run(async () => {
+  const result = await api('enrollment-link', {});
+  $('transfer-url').value = result.url; $('transfer').hidden = false;
+  status('5분 안에 본인 아이폰의 Safari에서 링크를 열어 주세요. 등록이 끝날 때까지 이 PC에서 로그아웃하지 마세요.');
+}));
+$('copy-link').addEventListener('click', () => run(async () => {
+  try { await navigator.clipboard.writeText($('transfer-url').value); status('링크를 복사했어요. 본인 아이폰으로 전달해 Safari에서 열어 주세요.'); }
+  catch { $('transfer-url').select(); status('위 링크를 직접 복사해 주세요.'); }
+}));
+$('revoke-link').addEventListener('click', () => run(async () => {
+  await api('revoke-enrollment-link', {});
+  $('transfer-url').value = ''; $('transfer').hidden = true; status('추가 등록 링크를 취소했어요.');
+}));
 $('logout').addEventListener('click', () => run(async () => {
   clearPrivate(); await api('logout', {}); await refresh();
 }));
@@ -87,6 +108,7 @@ if (location.hash.startsWith('#invite=')) {
 addEventListener('pagehide', clearPrivate);
 addEventListener('pageshow', () => run(refresh));
 document.addEventListener('visibilitychange', () => {
+  if (busy) return; // Do not erase the registration form during an OS authentication prompt.
   if (document.hidden) clearPrivate(); else run(refresh);
 });
 if (!window.PublicKeyCredential || !window.isSecureContext) {

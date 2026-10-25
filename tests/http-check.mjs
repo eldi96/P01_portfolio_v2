@@ -10,12 +10,13 @@ if(!origin||!origin.startsWith('https://p01-portfolio-v2-')||!origin.endsWith('-
 const dev=parseEnv(await readFile('research/.env.t08-dev','utf8'));
 if(dev.NEON_BRANCH!=='dev-t08-passkey')throw Error('Incorrect verification database');
 const local=parseEnv(await readFile('.env.local','utf8'));
+try { const refreshed=parseEnv(await readFile('research/.env.vercel-local','utf8')); if(refreshed.VERCEL_OIDC_TOKEN)local.VERCEL_OIDC_TOKEN=refreshed.VERCEL_OIDC_TOKEN; } catch(error) { if(error.code!=='ENOENT')throw error; }
 const db=new pg.Pool({connectionString:dev.DATABASE_URL,max:3});
 const ids=[randomUUID(),randomUUID()],invites=[randomBytes(32).toString('base64url'),randomBytes(32).toString('base64url')];
 const evidence={environment:'Vercel preview HTTP + live Neon development DB + software authenticator; NOT an OS/browser passkey',checks:[]};
 function browser(){const jar=new Map();return {jar,async request(action,body,expected,query='',extra={}){
   const r=await fetch(origin+'/api/passkey?action='+action+query,{method:body===undefined?'GET':'POST',headers:{'x-vercel-trusted-oidc-idp-token':local.VERCEL_OIDC_TOKEN,Origin:origin,'Content-Type':'application/json',Cookie:[...jar].map(([k,v])=>k+'='+v).join('; '),...extra},body:body===undefined?undefined:JSON.stringify(body)});
-  const data=await r.json();assert.equal(r.status,expected,action+': '+JSON.stringify(data));
+  const data=await r.json();assert.equal(r.status,expected,action+' unexpected status (response redacted)');
   assert.match(r.headers.get('cache-control'),/no-store/);
   for(const line of r.headers.getSetCookie()){const pair=line.split(';')[0],i=pair.indexOf('=');if(/Max-Age=0(?:;|$)/.test(line))jar.delete(pair.slice(0,i));else jar.set(pair.slice(0,i),pair.slice(i+1));}
   evidence.checks.push({action,status:r.status});return data;
@@ -39,6 +40,24 @@ try{
   await register(a,spare);await a.request('delete-key',{id:keyA.id},200);
   await login(stranger,keyA,401);await login(a,spare);
   await a.request('delete-key',{id:spare.id},409);
+  // Additional-device handoff is exercised through real preview HTTP requests.
+  await stranger.request('enrollment-link',{},401);
+  const link=async issuer=>{const data=await issuer.request('enrollment-link',{user_id:ids[1]},200);return new URL(data.url).hash.slice('#invite='.length);};
+  const reject=async invitation=>browser().request('register-options',{name:'Denied transfer',invitation},403);
+  const transfer=await link(a),phone=browser(),phoneKey=authenticator(ids[0],origin);
+  assert.equal((await db.query('SELECT user_id FROM t08_invitations WHERE token_hash=$1',[hash(transfer)])).rows[0].user_id,ids[0]);
+  await phone.request('items',undefined,401);await register(phone,phoneKey,transfer);
+  assert.equal((await phone.request('items',undefined,200)).items.length,3);
+  assert.equal((await a.request('keys',undefined,200)).keys.length,2);await reject(transfer);
+  const superseded=await link(a),current=await link(a);await reject(superseded);
+  await db.query("UPDATE t08_invitations SET expires_at=now()-interval '1 second' WHERE token_hash=$1",[hash(current)]);await reject(current);
+  const revoked=await link(a);await a.request('revoke-enrollment-link',{},200);await reject(revoked);
+  const issuer=browser();await login(issuer,spare);const pending=await link(issuer),pendingPhone=browser();
+  const pendingOptions=await pendingPhone.request('register-options',{name:'Pending phone',invitation:pending},200);
+  await issuer.request('logout',{},200);
+  await pendingPhone.request('register-verify',{credential:authenticator(ids[0],origin).register(pendingOptions.challenge)},403);await reject(pending);
+  await db.query("UPDATE t08_sessions SET expires_at=now()+interval '7 hours' WHERE token_hash=$1",[hash(a.jar.get('__Host-t08_session'))]);
+  await a.request('enrollment-link',{},401);await a.request('items',undefined,200);
   const old=new Map(a.jar);await a.request('logout',{},200);a.jar.clear();for(const [k,v]of old)a.jar.set(k,v);
   await a.request('items',undefined,401);
   evidence.passed=true;console.log('PASS: '+evidence.checks.length+' HTTP checks on Vercel preview and live Neon');

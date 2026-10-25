@@ -10,15 +10,22 @@
 <section id="locked" hidden aria-labelledby="locked-title"><h2 id="locked-title">패스키로 들어가기</h2>
 <p>기기에 저장된 패스키를 선택하고 지문·얼굴·기기 잠금으로 확인해 주세요.</p>
 <button id="login" type="button">패스키로 들어가기 ↗</button>
-<details id="enrollment"><summary>처음 패스키를 등록하나요?</summary>
-<p>소유자가 발급한 일회용 초대가 필요해요. 초대는 30분 동안 한 번만 사용할 수 있어요.</p>
+<details id="enrollment"><summary>초대 링크로 패스키 등록하기</summary>
+<p>이 기기에서 사용할 패스키를 등록해 주세요. 최초 등록 초대는 30분, 다른 기기 추가 등록 링크는 5분 동안 한 번만 사용할 수 있어요.</p>
 <form id="first-key"><label>일회용 초대<input id="invitation" autocomplete="off" maxlength="128" required></label>
 <label>패스키 이름<input id="first-name" maxlength="60" placeholder="예: 집 노트북" required></label>
-<button type="submit">첫 패스키 등록</button></form></details></section>
+<button type="submit">이 기기에 패스키 등록</button></form></details></section>
 <section id="unlocked" hidden aria-labelledby="private-title"><div class="section-top"><h2 id="private-title">비공개 기록</h2><button id="logout" type="button">로그아웃</button></div>
 <p>과제용으로 만든 가상 기록입니다. 실제 개인정보는 넣지 않았어요.</p><div id="items"></div>
 <h2>등록한 패스키</h2><ul id="keys"></ul>
+<p id="key-status" role="status" aria-live="polite"></p>
 <form id="extra-key"><label>새 패스키 이름<input id="extra-name" maxlength="60" placeholder="예: 강의실 보안 키" required></label><button type="submit">패스키 추가</button></form>
+<h2>아이폰 등 다른 기기에 추가하기</h2>
+<p>이 PC에서 최근 5분 이내에 패스키로 로그인한 뒤 링크를 만드세요. 다른 기기에서 로그인 없이 같은 계정에 새 패스키를 등록할 수 있어요.</p>
+<button id="make-link" type="button">다른 기기 등록 링크 만들기</button>
+<div id="transfer" hidden><label>5분 동안 한 번만 사용할 수 있는 링크<input id="transfer-url" readonly autocomplete="off"></label>
+<button id="copy-link" type="button">링크 복사</button><button id="revoke-link" type="button">링크 취소</button>
+<p>본인 아이폰의 Safari에서 열어 주세요. QR 연결이나 PC의 Bluetooth는 필요 없어요. 링크를 가진 사람은 이 계정에 패스키를 추가할 수 있으니 다른 사람에게 공유하지 마세요. 새 링크 발급 또는 PC 로그아웃 시 기존 링크는 무효가 됩니다.</p></div>
 <p class="hint">기기를 잃어버릴 때를 대비해 서로 다른 패스키 두 개를 등록해 주세요. 같은 패스키가 동기화된 기기는 별도 패스키로 세지 않아요.</p>
 <p class="hint">마지막 패스키는 삭제할 수 없어요. 먼저 새 패스키를 등록한 후 지워 주세요. 모든 패스키를 잃어버렸다면 소유자가 서버에서 복구 절차를 진행해야 해요.</p></section>
 <footer>개인키는 기기 또는 선택한 패스키 관리자가 보관해요. 이 사이트에는 공개키만 저장해요.<br>공개키만으로는 이 공간을 열 수 없어요.</footer></main></body></html>

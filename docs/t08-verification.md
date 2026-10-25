@@ -46,3 +46,15 @@ Notion 개발 기록의 `T08-passkey-handoff.txt`(기준 3ff92f6, 인계 구현 
 로컬 `test-results/passkey-api.json`, `passkey-neon.json`, `passkey-vercel-preview.json`, `passkey-vercel-production.json`, `production-public.json`에 비밀값을 제외한 결과가 있다. 산출물은 Git 제외다.
 
 `tests/http-check.mjs`는 격리된 미리보기 URL과 개발 DB만 허용한다. 실제 DB 테스트는 `T08_LIVE_DB=1` 및 전용 개발 브랜치 환경파일을 명시해야 하며 production에서는 실행하지 않는다. 일반 `npm test`는 DB 접속 정보 없이 PGlite로 실행한다.
+
+## 추가 기기 등록 증분 — 2026-10-25
+
+Notion `T08-additional-device.txt`(클라우드 239ce13)의 증분을 기존 PC 구현 위에 통합했다. 기존 테스트의 pg/Neon 실행 방식과 HTTP 검증 보강은 보존했다.
+
+- 최근 5분 내 로그인한 PC에서 5분짜리 단일 사용 링크를 발급하고, 로그인하지 않은 다른 기기에서 같은 계정의 새 패스키를 등록한다.
+- `002-additional-enrollment.sql`은 초대 테이블에 발급 세션 참조 컬럼만 추가한다. 기존 001 SQL은 수정하지 않았다.
+- 재발급·취소·만료·발급자 로그아웃 후 링크 거절과 링크 성공 소비를 검증했다.
+- 자동 테스트 12/12, 실제 Neon 개발 DB 12/12, Vercel 미리보기 HTTP 46개 통과. 이들은 소프트웨어 인증기 검증이며 실제 아이폰 Safari 등록은 아직 미검증이다.
+- 운영 002 적용 후 기존 계정 1개·패스키 1개·기록 3개와 기존 공개키 지문이 동일함을 확인했다. 기존 설정·다른 작업 파일은 보존했다.
+- 사용자가 테스트를 간단히 진행하도록 요청한 뒤에는 검사를 확대하지 않고 마이그레이션·배포·핵심 응답만 확인했다.
+- 추가 등록 URL은 계정에 새 키를 붙이는 권한이 있으므로 채팅·노션·테스트 출력·캡처에 저장하지 않았다.

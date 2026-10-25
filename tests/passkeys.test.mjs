@@ -12,7 +12,10 @@ const live = process.env.T08_LIVE_DB === '1';
 if (live && !['dev-t08-passkey','br-muddy-hill-b7xm0ey4'].includes(process.env.NEON_BRANCH)) throw Error('Live tests are restricted to the isolated T08 Neon development branch');
 test('Passkey API + '+(live?'live Neon PostgreSQL':'PGlite Postgres')+' + real WebAuthn signature verification', async t => {
   const sql = live ? new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 4, connectionTimeoutMillis: 15000 }) : new PGlite();
-  if (!live) await sql.exec(await readFile(new URL('../migrations/001-passkeys.sql', import.meta.url), 'utf8'));
+  if (!live) {
+    await sql.exec(await readFile(new URL('../migrations/001-passkeys.sql', import.meta.url), 'utf8'));
+    await sql.exec(await readFile(new URL('../migrations/002-additional-enrollment.sql', import.meta.url), 'utf8'));
+  }
   const db = live ? sql : { query: (s, v) => sql.query(s, v), connect: async () => ({ query: (s, v) => sql.query(s, v), release() {} }) };
   const handler = createPasskeyHandler({ db, origin });
   const evidence = { environment: live ? 'Live isolated Neon PostgreSQL + software authenticator, NOT OS/browser passkey' : 'PGlite test Postgres + software authenticator, NOT live Neon or browser', requests: [] };
@@ -39,7 +42,7 @@ test('Passkey API + '+(live?'live Neon PostgreSQL':'PGlite Postgres')+' + real W
   const keyA = authenticator('account-a'), spareA = authenticator('account-a'), keyB = authenticator('account-b');
   async function provision(id, invite) {
     await sql.query('INSERT INTO t08_users VALUES($1,$2)', [id, id]);
-    await sql.query("INSERT INTO t08_invitations VALUES($1,$2,now()+interval '30 minutes')", [hash(invite), id]);
+    await sql.query("INSERT INTO t08_invitations(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '30 minutes')", [hash(invite), id]);
     for (let i = 1; i <= 3; i++) await sql.query('INSERT INTO t08_private_items VALUES($1,$2,$3,$4)', [`${id}-${i}`, id, `fictional-${i}`, `${id} private fixture ${i}`]);
   }
   async function register(client, key, invitation) {
@@ -132,6 +135,48 @@ test('Passkey API + '+(live?'live Neon PostgreSQL':'PGlite Postgres')+' + real W
       assert.equal((await login(stranger, spareA)).status, 200);
       assert.equal((await a.request('items')).status, 200);
       assert.equal((await a.request('delete-key', { id: spareA.id })).status, 409);
+    });
+    await t.test('signed-in PC approves one additional key on a signed-out phone in the same account', async () => {
+      assert.equal((await browser().request('enrollment-link', {})).status, 401);
+      const issued = await a.request('enrollment-link', { user_id: 'account-b' });
+      assert.equal(issued.status, 200);
+      const invitation = new URLSearchParams(new URL(issued.body.url).hash.slice(1)).get('invite');
+      const stored = (await sql.query('SELECT * FROM t08_invitations WHERE token_hash=$1', [hash(invitation)])).rows[0];
+      assert.equal(stored.user_id, 'account-a'); assert.notEqual(stored.token_hash, invitation);
+      const phone = browser(), phoneKey = authenticator('account-a');
+      assert.equal((await phone.request('items')).status, 401);
+      await register(phone, phoneKey, invitation);
+      assert.equal((await phone.request('items')).body.items.length, 3);
+      assert.ok((await phone.request('items')).body.items.every(x => x.body.startsWith('account-a')));
+      assert.equal((await a.request('keys')).body.keys.length, 2);
+      assert.equal((await browser().request('register-options', { invitation, name: 'Reuse' })).status, 403);
+      assert.equal((await login(browser(), phoneKey)).status, 200);
+    });
+    await t.test('additional enrollment expires, can be revoked and is invalidated by reissue or issuer logout', async () => {
+      const link = async client => {
+        const result = await client.request('enrollment-link', {});
+        assert.equal(result.status, 200);
+        return new URLSearchParams(new URL(result.body.url).hash.slice(1)).get('invite');
+      };
+      const reject = async invitation => assert.equal((await browser().request('register-options', { invitation, name: 'Denied' })).status, 403);
+      const old = await link(a), current = await link(a);
+      await reject(old);
+      await sql.query("UPDATE t08_invitations SET expires_at=now()-interval '1 second' WHERE token_hash=$1", [hash(current)]);
+      await reject(current);
+      const canceled = await link(a);
+      assert.equal((await a.request('revoke-enrollment-link', {})).status, 200);
+      await reject(canceled);
+      const issuer = browser(); assert.equal((await login(issuer, spareA)).status, 200);
+      const revoked = await link(issuer);
+      const phone = browser(), options = await phone.request('register-options', { invitation: revoked, name: 'Phone' });
+      assert.equal(options.status, 200);
+      await issuer.request('logout', {});
+      const response = await phone.request('register-verify', { credential: authenticator('account-a').register(options.body.challenge) });
+      assert.equal(response.status, 403);
+      await reject(revoked);
+      await sql.query("UPDATE t08_sessions SET expires_at=now()+interval '7 hours' WHERE token_hash=$1", [hash(a.jar.get('__Host-t08_session'))]);
+      assert.equal((await a.request('enrollment-link', {})).status, 401);
+      assert.equal((await a.request('items')).status, 200); // Valid session, but not recent enough to approve enrollment.
     });
     await t.test('session expiry rejects requests and the DB never stores raw session tokens', async () => {
       const raw = a.jar.get('__Host-t08_session');
